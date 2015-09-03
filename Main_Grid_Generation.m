@@ -38,14 +38,20 @@ GPU_Rf_2_tmp = [];
 GPU_Rf_3_tmp = [];
 
 GPU_TOF_tmp = [];
+initial_v = [];
+final_v = [];
+
+% departure_vec = [];
 
 for Jd_index=1:Length_JD_d_vec; % loop over the departure Julian date
     JD_d = JD_d_vec(Jd_index);
     [coe_i, R_i, V_i, jd_i] = planet_elements_and_sv(planet_id_i,JD_d, mu); % calculate the position and velocity  
     GridDataR_i(Jd_index,:) = R_i;
     GridDataV_i(Jd_index,:) = V_i;
+    
     for TOF_index = 1:Length_TOF_vec % loop over the time of fliht at each departure date
         TOF = TOF_vec(TOF_index);
+        
         JD_f = JD_d + TOF;
         [coe_f, R_f, V_f, jd_f] = planet_elements_and_sv(planet_id_f,JD_f, mu); %calculate the position and velocity  
         GridDataR_f(TOF_index,:) = R_f;
@@ -61,7 +67,8 @@ for Jd_index=1:Length_JD_d_vec; % loop over the departure Julian date
         
         GPU_TOF_tmp = [GPU_TOF_tmp; TOF];
         
-        
+        initial_v = [ initial_v,V_i];
+        final_v = [ final_v, V_f];
     end
 end
 
@@ -99,4 +106,25 @@ V2_final = [gather(V2_1) gather(V2_2) gather(V2_3)];
 extremal_distances_final = [gather(extremal_distances_L) gather(extremal_distances_H)];
 exitflag_final = gather(exitflag);
 
+initial_v_diff_norm = zeros(length(V1_final), 1);
+final_v_diff_norm = zeros(length(V1_final), 1);
+
+for i = 1 : length(V1_final)
+    initial_v_diff_norm(i) = norm(V1_final(i,:) - initial_v(:,i)', 2);
+    final_v_diff_norm(i) = norm(V2_final(i,:) - final_v(:,1)', 2);
+end
+
+d_v = abs(final_v_diff_norm - initial_v_diff_norm);
+
+d_v_grid = zeros (Length_TOF_vec, Length_JD_d_vec);
+
+for Jd_index=1:Length_JD_d_vec; % loop over the departure Julian date
+    for TOF_index = 1:Length_TOF_vec % loop over the time of fliht at each departure date
+        d_v_grid( TOF_index,Jd_index) = d_v(Length_TOF_vec*(Jd_index-1) + TOF_index);
+    end
+end
+
+[X_mesh,Y_mesh] = meshgrid(JD_d_vec', TOF_vec');
+
+contour(X_mesh,Y_mesh, d_v_grid)
 
